@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Wheel Control</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #f0f0f0;
+      font-family: Arial, sans-serif;
+    }
+
+    #wheel {
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      border: 5px solid #333;
+      position: relative;
+      overflow: hidden;
+      transition: transform 5s cubic-bezier(0.25, 1, 0.5, 1); /* smooth stop */
+    }
+
+    .number {
+      position: absolute;
+      width: 50%;
+      height: 50%;
+      left: 50%;
+      top: 50%;
+      transform-origin: 0% 0%;
+      text-align: right;
+      padding-right: 10px;
+      font-weight: bold;
+      font-size: 20px;
+    }
+
+    #pointer {
+      width: 0;
+      height: 0;
+      border-left: 15px solid transparent;
+      border-right: 15px solid transparent;
+      border-bottom: 30px solid red;
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    #controls {
+      margin-top: 20px;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <div id="wheel-container">
+    <div id="pointer"></div>
+    <div id="wheel"></div>
+  </div>
+
+  <div id="controls">
+    <button onclick="startWheel()">Start</button>
+    <input type="number" id="stopNumber" placeholder="Number to stop (1-12)">
+    <button onclick="stopAtNumber()">Stop at Number</button>
+  </div>
+
+  <div id="status">Status: Waiting...</div>
+
+  <script>
+    const wheel = document.getElementById("wheel");
+    const statusBox = document.getElementById("status");
+    let spinning = false;
+    let currentRotation = 0;
+
+    // Create 12 numbers on wheel
+    function createWheel() {
+      const total = 12;
+      for (let i = 1; i <= total; i++) {
+        const div = document.createElement("div");
+        div.className = "number";
+        div.innerText = i;
+        const angle = (360 / total) * (i - 1);
+        div.style.transform = `rotate(${angle}deg) translate(-50%, -50%)`;
+        wheel.appendChild(div);
+      }
+    }
+    createWheel();
+
+    function startWheel() {
+      if (spinning) return;
+      spinning = true;
+      statusBox.innerText = "Status: Wheel started!";
+      // infinite spin until stop command
+      wheel.style.transition = "none";
+      currentRotation += 360 * 10; // big rotation
+      wheel.style.transform = `rotate(${currentRotation}deg)`;
+    }
+
+    function stopAtNumber() {
+      if (!spinning) return;
+      const stopNumber = parseInt(document.getElementById("stopNumber").value);
+      if (!stopNumber || stopNumber < 1 || stopNumber > 12) {
+        alert("Enter number between 1 and 12");
+        return;
+      }
+
+      // angle per number
+      const anglePerNum = 360 / 12;
+      const targetAngle = (stopNumber - 1) * anglePerNum;
+
+      // Normalize current rotation
+      currentRotation = currentRotation % 360;
+
+      // Add enough spins + align to target
+      const extraSpins = 5; // extra rounds before stop
+      const finalRotation = (360 * extraSpins) + (360 - targetAngle);
+
+      // Apply smooth transition
+      wheel.style.transition = "transform 5s cubic-bezier(0.25, 1, 0.5, 1)";
+      wheel.style.transform = `rotate(${currentRotation + finalRotation}deg)`;
+
+      statusBox.innerText = "Status: Wheel slowing down...";
+      spinning = false;
+
+      setTimeout(() => {
+        statusBox.innerText = `Status: Wheel stopped at number ${stopNumber}`;
+      }, 5000);
+    }
+  </script>
+</body>
+</html>

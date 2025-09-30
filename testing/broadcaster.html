@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Broadcaster (Host) - Zego Live</title>
+  <style>
+    #root {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+  <script>
+    window.onload = function () {
+      const roomID = "demoRoom"; // आप चाहें तो dynamic बना सकते हैं
+      const userID = "host_" + Math.floor(Math.random() * 10000);
+      const userName = "Host_" + userID;
+      const appID = 906988945;
+      const serverSecret = "4a901db0f6009cc505f7697aefa38dec";
+
+      const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+        appID,
+        serverSecret,
+        roomID,
+        userID,
+        userName
+      );
+
+      const zp = ZegoUIKitPrebuilt.create(kitToken);
+
+      zp.joinRoom({
+        container: document.querySelector("#root"),
+        scenario: {
+          mode: ZegoUIKitPrebuilt.LiveStreaming,
+          config: {
+            role: ZegoUIKitPrebuilt.Host,
+          },
+        },
+        sharedLinks: [
+          {
+            name: "Join as Audience",
+            url:
+              window.location.protocol +
+              "//" +
+              window.location.host +
+              "/viewer.html?roomID=" +
+              roomID,
+          },
+        ],
+        turnOnCameraWhenJoining: true,
+        showMyCameraToggleButton: true,
+        showAudioVideoSettingsButton: true,
+        showScreenSharingButton: true,
+        showTextChat: true,
+        showUserList: true,
+      });
+    };
+  </script>
+</body>
+</html>

@@ -27,7 +27,7 @@
     gap: 10px;
   }
 
-  input[type=number] {
+  input[type=number], input[type=text] {
     padding: 8px 12px;
     font-size: 16px;
     border-radius: 5px;
@@ -71,17 +71,28 @@
 <body>
   <h1>🎡 Smart Wheel</h1>
   <div id="controls">
-    <input type="number" id="stopNumber" placeholder="0-9" min="0" max="9">
-    <button onclick="startWheel()">Start</button>
-    <button onclick="stopWheel()">Stop</button>
+    <div style="width:100%">
+      <input type="text" id="anytext" placeholder="Enter any text.." >
+        <button onclick="sendAnyText()">Send</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div style="width:100%">
+        <input type="number" id="stopNumber" placeholder="0-9" min="0" max="9">
+        <button onclick="startWheel()">Start</button>
+        <button onclick="stopWheel()">Stop</button>
+    </div>
   </div>
 
   <canvas id="wheelCanvas" width="400" height="400"></canvas>
   <div id="status">Status: Idle</div>
 
-<script src="http://localhost:3000/socket.io/socket.io.js"></script>
 <script>
-const socket = io("http://localhost:3000");
+/* 🟢 CHANGE THIS to your server IP (same as ESP8266 uses) */
+// const ws = new WebSocket("ws:localhost:3006");
+const ws = new WebSocket("ws:145.223.18.56:3006");
+
 const canvas = document.getElementById("wheelCanvas");
 const ctx = canvas.getContext("2d");
 const center = canvas.width / 2;
@@ -89,20 +100,20 @@ const numbers = [0,1,2,3,4,5,6,7,8,9];
 let currentAngle = 0;
 let spinning = false;
 let targetNumber = null;
+let anytext = '';
 
-// Draw wheel with numbers
+// Draw wheel
 function drawWheel() {
   const slice = (2 * Math.PI) / numbers.length;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  for (let i=0; i<numbers.length; i++) {
-    const startAngle = i*slice + currentAngle;
-    const endAngle = (i+1)*slice + currentAngle;
+  for (let i = 0; i < numbers.length; i++) {
+    const startAngle = i * slice + currentAngle;
+    const endAngle = (i + 1) * slice + currentAngle;
 
     const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
-    gradient.addColorStop(0, i%2===0 ? "#f39c12" : "#e67e22");
-    gradient.addColorStop(1, i%2===0 ? "#d35400" : "#c0392b");
+    gradient.addColorStop(0, i % 2 === 0 ? "#f39c12" : "#e67e22");
+    gradient.addColorStop(1, i % 2 === 0 ? "#d35400" : "#c0392b");
     ctx.fillStyle = gradient;
 
     ctx.beginPath();
@@ -110,10 +121,9 @@ function drawWheel() {
     ctx.arc(center, center, center, startAngle, endAngle);
     ctx.fill();
 
-    // Number
     ctx.save();
     ctx.translate(center, center);
-    ctx.rotate(startAngle + slice/2);
+    ctx.rotate(startAngle + slice / 2);
     ctx.fillStyle = "#fff";
     ctx.font = "24px Arial";
     ctx.textAlign = "center";
@@ -124,78 +134,97 @@ function drawWheel() {
 
   // Center circle
   ctx.beginPath();
-  ctx.arc(center, center, 30, 0, 2*Math.PI);
+  ctx.arc(center, center, 30, 0, 2 * Math.PI);
   ctx.fillStyle = "#222";
   ctx.shadowColor = "#000";
   ctx.shadowBlur = 10;
   ctx.fill();
 
-  // Pin indicator at top
+  // Top Pin
   ctx.beginPath();
   ctx.moveTo(center, 10);
-  ctx.lineTo(center-15, 40);
-  ctx.lineTo(center+15, 40);
+  ctx.lineTo(center - 15, 40);
+  ctx.lineTo(center + 15, 40);
   ctx.closePath();
   ctx.fillStyle = "#ff0000";
   ctx.fill();
 
-  // Highlight number under pin (fix)
-  // Pin is at top → angle = -PI/2
+  // Highlighted number
   const pinAngle = -Math.PI / 2;
-  const adjustedAngle = (pinAngle - currentAngle + 2*Math.PI) % (2*Math.PI);
+  const adjustedAngle = (pinAngle - currentAngle + 2 * Math.PI) % (2 * Math.PI);
   const sliceIndex = Math.floor(adjustedAngle / slice);
   const highlightedNumber = numbers[sliceIndex % numbers.length];
 
   ctx.fillStyle = "#00ff00";
   ctx.font = "28px Arial";
-  ctx.fillText(highlightedNumber, center, center+5);
+  ctx.fillText(highlightedNumber, center, center + 5);
 }
 
-
-// Animate render
 function render() {
   drawWheel();
 }
 
-// Start wheel
+// Start
+function sendAnyText() {
+  anytext = document.getElementById("anytext").value;
+  sendMessage({ action: "anytext",text:anytext });
+}
+
+// Start
 function startWheel() {
   targetNumber = parseInt(document.getElementById("stopNumber").value);
-  if (isNaN(targetNumber) || targetNumber <0 || targetNumber>9) { 
-    alert("Enter number 0-9!"); 
-    return; 
+  if (isNaN(targetNumber) || targetNumber < 0 || targetNumber > 9) {
+    alert("Enter number 0-9!");
+    return;
   }
   spinning = true;
-  socket.emit("startWheel"); // send only start
+  sendMessage({ action: "startWheel" });
 }
 
-// Stop wheel manually
+// Stop
 function stopWheel() {
-  if(spinning && targetNumber !== null) {
-    socket.emit("manualStop", { stopNumber: targetNumber });
+  if (spinning && targetNumber !== null) {
+    sendMessage({ action: "manualStop", stopNumber: targetNumber });
   }
 }
 
-// Socket events
-socket.on("statusUpdate", (msg) => {
-  document.getElementById("status").innerText = "Status: " + msg;
-});
+// Send message helper
+function sendMessage(obj) {
+  ws.send(JSON.stringify(obj));
+}
 
-// Smooth ease-out rotation
-socket.on("rotate", ({ angle }) => {
-  const diff = angle - currentAngle;
-  currentAngle += diff * 0.2;
-  render();
-});
+// WebSocket events
+ws.onopen = () => {
+  console.log("✅ Connected to server");
+  document.getElementById("status").innerText = "Status: Connected";
+};
 
-// Final number exact position
-socket.on("finalNumber", (num) => {
-  const slice = (2*Math.PI)/numbers.length;
-  currentAngle = (7 - num) * slice;
-  spinning = false;
-  render();
-});
+ws.onmessage = (event) => {
+  try {
+    const data = JSON.parse(event.data);
+    if (data.status) {
+      document.getElementById("status").innerText = "Status: " + data.status;
+    }
+    if (data.rotate) {
+      const diff = data.rotate.angle - currentAngle;
+      currentAngle += diff * 0.2;
+      render();
+    }
+    if (data.finalNumber !== undefined) {
+      const slice = (2 * Math.PI) / numbers.length;
+      currentAngle = (7 - data.finalNumber) * slice;
+      spinning = false;
+      render();
+    }
+  } catch (err) {
+    console.error("Invalid message:", event.data);
+  }
+};
 
-// Initial draw
+ws.onclose = () => {
+  document.getElementById("status").innerText = "Status: Disconnected";
+};
+
 render();
 </script>
 </body>

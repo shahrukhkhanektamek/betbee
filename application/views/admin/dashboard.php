@@ -473,7 +473,7 @@
                             <?php if(empty($session_id)){ ?>
                                  <div class="row" style="width:100%">
                                      
-                            
+                              Wheel Staus <span id="wheelstatus"></span>
                                     <div class="col-md-12 text-center mb-2">
                                        <label class="btn btn-danger" for="timer_checkbox">
                                           <input type="checkbox" id="timer_checkbox" value="1" checked> Start timer after declare result
@@ -830,20 +830,23 @@ $(document).on("click", ".submit-manual-confirm",(function(e) {
    update(ref(db, '/'), {'L1':String("s")});
    update(ref(db, '/'), {'F1':String("Runing :"+p_id)});
 
+   startWheel()
+   stopWheel();
 
-   let timeLeft = 15;
-   const countdown = setInterval(() => {
-         timeLeft--;
-         // timerElement.textContent = timeLeft;
-         timerElement.textContent = "Wheel Runing...";
 
-         if (timeLeft <= 0) {
-             clearInterval(countdown);
-            update(ref(db, '/'), {'L1':String(p_id)});
-         }
-   }, 1000);
+   // let timeLeft = 15;
+   // const countdown = setInterval(() => {
+   //       timeLeft--;
+   //       // timerElement.textContent = timeLeft;
+   //       timerElement.textContent = "Wheel Runing...";
 
-   declareResult();
+   //       if (timeLeft <= 0) {
+   //           clearInterval(countdown);
+   //          update(ref(db, '/'), {'L1':String(p_id)});
+   //       }
+   // }, 1000);
+
+   // declareResult();
 
    
 
@@ -1213,36 +1216,34 @@ live_session_id();
       $(".bet-btns").html(btn_card);
    }
     function timerdataupdate(status,datetime) {
-                set(ref(db, 'timerdataupdate/' + 1), {
-                    status: status,
-                    dateTime: datetime,
-                    number: p_id,
-                });
+          set(ref(db, 'timerdataupdate/' + 1), {
+              status: status,
+              dateTime: datetime,
+              number: p_id,
+          });
 
-                set(ref(db, 'timerdataupdate/' + 2), {
-                    status: status,
-                    dateTime: datetime,
-                });
+          set(ref(db, 'timerdataupdate/' + 2), {
+              status: status,
+              dateTime: datetime,
+          });
 
-                remove(ref(db, 'timerdataupdate/' + 2), {
-                    status: status,
-                    dateTime: datetime,
-                });
-
-
-                set(ref(db, 'wheel/' + 1), {
-                    status: 4,
-                    dateTime: datetime,
-                });
-                set(ref(db, 'wheel/' + 1), {
-                    status: p_id,
-                    dateTime: datetime,
-                });
-
-               
+          remove(ref(db, 'timerdataupdate/' + 2), {
+              status: status,
+              dateTime: datetime,
+          });
 
 
-              }
+          set(ref(db, 'wheel/' + 1), {
+              status: 4,
+              dateTime: datetime,
+          });
+          set(ref(db, 'wheel/' + 1), {
+              status: p_id,
+              dateTime: datetime,
+          });         
+
+
+        }
     function betStatus()
    {
       var  data = [];
@@ -1284,43 +1285,76 @@ live_session_id();
          data = snapshot.val();
          if(data.split(":")[0]=="FeedBack ")
          {
-           declareResult();
-           
+           declareResult(); 
          }
-
-        console.log(data)
     });
     }
     getWellStopStatus();
 
+           
+
+/* 🟢 CHANGE THIS to your server IP (same as ESP8266 uses) */
+// const ws = new WebSocket("ws:localhost:3006");
+const ws = new WebSocket("ws:145.223.18.56:3006");
 
 
-    // function getTimer2()
-    // {
-    // var  data = [];
-    // let starCountRef = ref(db, '/');
-    // onValue(starCountRef, (snapshot) => {
-    //     data = snapshot.val();
-    //     console.log(data)
-    // });
-    // }
-    // getTimer2();
+let targetNumber = null;
+let anytext = '';
 
 
-    // function handleVisibilityChange() {
-    //   if (document.hidden) {
-    //     console.log("Tab is hidden");
-    //   } else {
-    //     clearInterval(interval);
-    //     clearInterval(interval2);
-    //     live_session_id()
-    //   }
-    // }
-    // document.addEventListener("visibilitychange", handleVisibilityChange, false);
-              
-              
+
+
+// Start
+function sendAnyText() {
+  anytext = document.getElementById("anytext").value;
+  sendMessage({ action: "anytext",text:anytext });
+}
+
+// Start
+function startWheel() {
+  targetNumber = p_id;
+  sendMessage({ action: "anytext",text:'s' });
+}
+
+// Stop
+function stopWheel() {
+  if (targetNumber !== null) {
+    sendMessage({ action: "anytext",text:targetNumber });
+  }
+}
+
+
+
+// Send message helper
+function sendMessage(obj) {
+  ws.send(JSON.stringify(obj));
+}
+
+// WebSocket events
+ws.onopen = () => {
+  console.log("✅ Connected to server");
+  document.getElementById("wheelstatus").innerText = "Status: Connected";
+};
+
+ws.onmessage = (event) => {
+  try {
+    const data = JSON.parse(event.data);
+    if (data.status) {
+      document.getElementById("wheelstatus").innerText = "Status: " + data.status;
+    }
+    
+  } catch (err) {
+    console.error("Invalid message:", event.data);
+  }
+};
+
+ws.onclose = () => {
+  document.getElementById("wheelstatus").innerText = "Status: Disconnected";
+};
+
 
 </script>
+
 
 
 

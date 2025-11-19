@@ -77,7 +77,7 @@ wss.on("connection", (ws, req) => {
     if (state && state.spinning) {
       state.angle = (state.angle || 0) + 0.3;
       wheelState.set(ws, state);
-      // broadcast({ rotate: { angle: state.angle } });
+      // broadcast(JSON.stringify({ rotate: { angle: state.angle } }));
     }
   }, 30);
 

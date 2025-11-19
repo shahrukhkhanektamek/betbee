@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🎡 Smart Wheel</title>
+<style>
+ 
+
+  h1 {
+    margin-bottom: 20px;
+    color: #ffd700;
+    text-shadow: 1px 1px 4px #000;
+  }
+
+  #controls {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+  }
+
+  input[type=number], input[type=text] {
+    padding: 8px 12px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: none;
+    width: 120px;
+  }
+
+  button {
+    padding: 8px 20px;
+    font-size: 16px;
+    background: #e67e22;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+
+  button:hover {
+    background: #f1c40f;
+    color: #000;
+  }
+
+  canvas {
+    margin-top: 20px;
+    border-radius: 50%;
+    box-shadow: 0 0 20px rgba(0,0,0,0.7);
+    background: radial-gradient(circle at center, #fff 5%, #333 90%);
+  }
+
+  #status {
+    margin-top: 20px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #00ff99;
+    text-shadow: 1px 1px 2px #000;
+  }
+
+</style>
+</head>
+<body>
+
+
+  <canvas id="wheelCanvas" width="400" height="400"></canvas>
+  <div id="status">Status: Idle</div>
+
+<script>
+/* 🟢 CHANGE THIS to your server IP (same as ESP8266 uses) */
+const ws = new WebSocket("ws:localhost:3006");
+// const ws = new WebSocket("ws:145.223.18.56:3006");
+
+const canvas = document.getElementById("wheelCanvas");
+const ctx = canvas.getContext("2d");
+const center = canvas.width / 2;
+const numbers = [0,1,2,3,4,5,6,7,8,9];
+let currentAngle = 0;
+let spinning = false;
+let targetNumber = null;
+let anytext = '';
+
+// Draw wheel
+function drawWheel() {
+  const slice = (2 * Math.PI) / numbers.length;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (let i = 0; i < numbers.length; i++) {
+    const startAngle = i * slice + currentAngle;
+    const endAngle = (i + 1) * slice + currentAngle;
+
+    const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
+    gradient.addColorStop(0, i % 2 === 0 ? "#f39c12" : "#e67e22");
+    gradient.addColorStop(1, i % 2 === 0 ? "#d35400" : "#c0392b");
+    ctx.fillStyle = gradient;
+
+    ctx.beginPath();
+    ctx.moveTo(center, center);
+    ctx.arc(center, center, center, startAngle, endAngle);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(center, center);
+    ctx.rotate(startAngle + slice / 2);
+    ctx.fillStyle = "#fff";
+    ctx.font = "24px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(numbers[i], center * 0.6, 0);
+    ctx.restore();
+  }
+
+  // Center circle
+  ctx.beginPath();
+  ctx.arc(center, center, 30, 0, 2 * Math.PI);
+  ctx.fillStyle = "#222";
+  ctx.shadowColor = "#000";
+  ctx.shadowBlur = 10;
+  ctx.fill();
+
+  // Top Pin
+  ctx.beginPath();
+  ctx.moveTo(center, 10);
+  ctx.lineTo(center - 15, 40);
+  ctx.lineTo(center + 15, 40);
+  ctx.closePath();
+  ctx.fillStyle = "#ff0000";
+  ctx.fill();
+
+  // Highlighted number
+  const pinAngle = -Math.PI / 2;
+  const adjustedAngle = (pinAngle - currentAngle + 2 * Math.PI) % (2 * Math.PI);
+  const sliceIndex = Math.floor(adjustedAngle / slice);
+  const highlightedNumber = numbers[sliceIndex % numbers.length];
+
+  ctx.fillStyle = "#00ff00";
+  ctx.font = "28px Arial";
+  ctx.fillText(highlightedNumber, center, center + 5);
+
+
+}
+
+function render() {
+  drawWheel();
+}
+
+
+
+// Send message helper
+function sendMessage(obj) {
+  ws.send(JSON.stringify(obj));
+}
+
+// WebSocket events
+ws.onopen = () => {
+  console.log("✅ Connected to server");
+  document.getElementById("status").innerText = "Status: Connected";
+};
+
+ws.onmessage = (event) => {
+  try {
+    const data = JSON.parse(event.data);
+    if (data.status) {
+      document.getElementById("status").innerText = "Status: " + data.status;
+    }
+    if (data.rotate) {
+      const diff = data.rotate.angle - currentAngle;
+      currentAngle += diff * 0.2;
+      render();
+    }
+    if (data.finalNumber !== undefined) {
+      const slice = (2 * Math.PI) / numbers.length;
+      currentAngle = (7 - data.finalNumber) * slice;
+      spinning = false;
+      render();
+    }
+  } catch (err) {
+    console.error("Invalid message:", event.data);
+  }
+};
+
+ws.onclose = () => {
+  document.getElementById("status").innerText = "Status: Disconnected";
+};
+
+render();
+</script>
+</body>
+</html>
